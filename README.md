@@ -5,8 +5,11 @@ Unity Native Plugin to loopback windows audio to AudioSource.
 
 # 使い方 Usage
 1. LoopbackAudioSource/scripts/LoopbackAudioSource.cs をAudioSourceのあるGameObjectにコンポーネントして追加する。
+
     Add LoopbackAudioSource/scripts/LoopbackAudioSource.cs to GameObject with Unity AudioSource as Component.
+
 2. インスペクタで、Channelに0（左チャンネル）または 1（右チャンネル）を入れる
+
     Set 0 (left channel) or 1 (right channel) to Channel at Inspector.
 
 # 仕組み Mechanism
