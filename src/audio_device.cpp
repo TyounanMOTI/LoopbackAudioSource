@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <stdexcept>
 #include <chrono>
+#include <cassert>
 
 using namespace Microsoft::WRL;
 
@@ -13,7 +14,8 @@ AudioDevice::AudioDevice()
 {}
 
 void AudioDevice::initialize(
-  int buffer_length_millisec)
+  int buffer_length_millisec,
+  int output_sampling_rate)
 {
   auto hr = CoCreateInstance(
     __uuidof(MMDeviceEnumerator),
@@ -54,6 +56,14 @@ void AudioDevice::initialize(
   num_channels = mix_format->nChannels;
   bit_per_sample = mix_format->wBitsPerSample;
 
+  resampler = std::make_unique<MFT_resampler>(
+    mix_format->nBlockAlign,
+    reinterpret_cast<WAVEFORMATEXTENSIBLE*>(mix_format)->dwChannelMask,
+    mix_format->nAvgBytesPerSec,
+    mix_format->nSamplesPerSec,
+    output_sampling_rate
+    );
+
   hr = audio_client->Initialize(
     AUDCLNT_SHAREMODE_SHARED,
     AUDCLNT_STREAMFLAGS_LOOPBACK,
@@ -62,6 +72,7 @@ void AudioDevice::initialize(
     mix_format,
     nullptr
   );
+  CoTaskMemFree(mix_format);
   if (FAILED(hr)) {
     throw std::runtime_error("Failed to initialize audio client.");
   }
@@ -91,6 +102,7 @@ void AudioDevice::initialize(
   pass_buffer.resize(4096);
   zero_buffer.assign(4096, 0.0f);
 
+  running = true;
   recorder = std::make_unique<std::thread>(&AudioDevice::run, this);
 
   initialized = true;
@@ -111,6 +123,8 @@ int AudioDevice::get_num_channels()
   return num_channels;
 }
 
+using namespace std::chrono;
+
 float* AudioDevice::get_buffer(int request_channel, int length)
 {
   if (!is_initialized()) {
@@ -121,17 +135,53 @@ float* AudioDevice::get_buffer(int request_channel, int length)
     zero_buffer.resize(length);
   }
 
-  if (recording_data[request_channel].size() < length) {
-    // 録音が間に合っていないので無音を返す。再生開始時でなければ音途切れになる
+  size_t recording_data_size;
+  {
+    std::lock_guard<std::mutex> lock(recording_data_mutex);
+    recording_data_size = recording_data[request_channel].size();
+  }
+
+#if 0
+  // デバッグのため処理時間を計測
+  auto start = steady_clock::now();
+#endif
+
+#if 0
+  // デバッグのためバッファ残量を出力
+  wchar_t print_string[256];
+  wsprintf(print_string, L"%d\n", recording_data_size);
+  OutputDebugString(print_string);
+#endif
+
+#if 0
+  // 録音が間に合っていない。バッファ長の1/3だけ待ってリトライ
+  while (recording_data_size < length) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<size_t>((double)buffer_frame_count / sampling_rate / 2.0 * 1000.0)));
+    {
+      std::lock_guard<std::mutex> lock(recording_data_mutex);
+      recording_data_size = recording_data[request_channel].size();
+    }
+  }
+#endif
+  if (recording_data_size < length) {
+    // 録音が間に合っていない。音途切れ発生。
     return zero_buffer.data();
-  } else {
+  }
+  {
     std::lock_guard<std::mutex> lock(recording_data_mutex);
     std::copy(recording_data[request_channel].begin(), recording_data[request_channel].begin() + length, pass_buffer.begin());
     for (size_t i = 0; i < length; ++i) {
       recording_data[request_channel].pop_front();
     }
-    return pass_buffer.data();
   }
+#if 0
+  // デバッグのため処理時間を計測
+  auto elapsed = duration_cast<microseconds>(steady_clock::now() - start);
+  wchar_t print_string[256];
+  swprintf(print_string, L"%d\n", elapsed.count());
+  OutputDebugString(print_string);
+#endif
+  return pass_buffer.data();
 }
 
 void AudioDevice::reset_buffer(int request_channel)
@@ -142,10 +192,11 @@ void AudioDevice::reset_buffer(int request_channel)
 
 void AudioDevice::run()
 {
-  while (true) {
-    // バッファ長の半分だけ待つ
+  while (running) {
+    // バッファ長の1/2だけ待つ
     std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<size_t>((double)buffer_frame_count / sampling_rate / 2.0 * 1000.0)));
 
+    UINT32 total_frames = 0;
     UINT32 packet_length;
     auto hr = capture_client->GetNextPacketSize(&packet_length);
     if (FAILED(hr)) {
@@ -155,6 +206,11 @@ void AudioDevice::run()
     UINT32 num_frames_available;
     DWORD flags;
     while (packet_length != 0) {
+#if 0
+      // デバッグのため処理時間を計測
+      auto start = steady_clock::now();
+#endif
+
       hr = capture_client->GetBuffer(
         &fragment,
         &num_frames_available,
@@ -165,19 +221,35 @@ void AudioDevice::run()
       if (FAILED(hr)) {
         throw std::runtime_error("Failed to get buffer.");
       }
+      assert(hr != AUDCLNT_S_BUFFER_EMPTY);
+      total_frames += num_frames_available;
+
       if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
         ZeroMemory(fragment, sizeof(BYTE) * bit_per_sample / 8 * num_frames_available * num_channels);
       }
-      // 32bit float前提でまずは作る
-      {
-        std::lock_guard<std::mutex> lock(recording_data_mutex);
-        for (size_t channel = 0; channel < num_channels; ++channel) {
-          for (size_t sample = channel; sample < num_frames_available * num_channels; sample += num_channels) {
-            deinterleave_buffer[channel][sample / num_channels] = reinterpret_cast<float*>(fragment)[sample];
-          }
+      // リサンプラへ入力
+      resampler->write_buffer(fragment, sizeof(BYTE) * bit_per_sample / 8 * num_frames_available * num_channels);
 
-          auto input_begin = deinterleave_buffer[channel].begin();
-          std::copy(input_begin, input_begin + num_frames_available, std::back_inserter(recording_data[channel]));
+      hr = capture_client->ReleaseBuffer(num_frames_available);
+      if (FAILED(hr)) {
+        throw std::runtime_error("Failed to release buffer.");
+      }
+
+      // リサンプラから出力をとってくる
+      resampler_result.clear();
+      resampler->read_buffer(resampler_result);
+
+      // 32bit float前提でまずは作る
+      for (size_t channel = 0; channel < num_channels; ++channel) {
+        deinterleave_buffer[channel].resize(resampler_result.size() / sizeof(float) * sizeof(BYTE) / num_channels);
+        for (size_t sample = channel; sample < deinterleave_buffer[channel].size() * num_channels; sample += num_channels) {
+          deinterleave_buffer[channel][sample / num_channels] = reinterpret_cast<float*>(resampler_result.data())[sample];
+        }
+
+        {
+          std::lock_guard<std::mutex> lock(recording_data_mutex);
+          std::copy(deinterleave_buffer[channel].begin(), deinterleave_buffer[channel].end(), std::back_inserter(recording_data[channel]));
+
           // 古すぎるデータは捨てる。再生中に実行すると音途切れする
           if (recording_data[channel].size() > max_buffer_size) {
             for (size_t i = 0; i < recording_data[channel].size() - max_buffer_size; ++i) {
@@ -186,12 +258,15 @@ void AudioDevice::run()
           }
         }
       }
-
-      hr = capture_client->ReleaseBuffer(num_frames_available);
-      if (FAILED(hr)) {
-        throw std::runtime_error("Failed to release buffer.");
+#if 0
+      // デバッグのため処理時間を計測
+      auto elapsed = duration_cast<microseconds>(steady_clock::now() - start);
+      wchar_t print_string[256];
+      if (num_frames_available > 0) {
+        swprintf(print_string, L"%f\n", (double)elapsed.count() / ((double)num_frames_available / sampling_rate * 1000.0 * 1000.0));
+        OutputDebugString(print_string);
       }
-
+#endif
       hr = capture_client->GetNextPacketSize(&packet_length);
       if (FAILED(hr)) {
         throw std::runtime_error("Failed to get next packet size.");
@@ -202,77 +277,11 @@ void AudioDevice::run()
 
 AudioDevice::~AudioDevice()
 {
-  recorder.reset(); // 録音スレッドを停止
+  // 録音スレッドを停止
+  running = false;
+  recorder->join();
+
   if (initialized) {
     audio_client->Stop();
   }
 }
-
-// exports
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-LOOPBACKAUDIOSOURCE_API int IsInitialized()
-{
-  if (!device) {
-    return 0;
-  }
-  if (!device->is_initialized()) {
-    return 0;
-  }
-  return 1;
-}
-
-LOOPBACKAUDIOSOURCE_API int Initialize(
-  int buffer_length_millisec)
-{
-  if (!device) {
-    return 0;
-  }
-  try {
-    device->initialize(
-      buffer_length_millisec
-    );
-  } catch (const std::exception&) {
-    return 0;
-  }
-
-  return 1;
-}
-
-LOOPBACKAUDIOSOURCE_API int GetSamplingRate()
-{
-  if (!device) {
-    return -1;
-  }
-  return device->get_sampling_rate();
-}
-
-LOOPBACKAUDIOSOURCE_API int GetNumChannels()
-{
-  if (!device) {
-    return -1;
-  }
-  return device->get_num_channels();
-}
-
-LOOPBACKAUDIOSOURCE_API void GetSamples(int channel, int length, float* &recorded)
-{
-  if (!device) {
-    return;
-  }
-  recorded = device->get_buffer(channel, length);
-}
-
-LOOPBACKAUDIOSOURCE_API void ResetBuffer(int channel)
-{
-  if (!device) {
-    return;
-  }
-  device->reset_buffer(channel);
-}
-
-#ifdef __cplusplus
-}
-#endif

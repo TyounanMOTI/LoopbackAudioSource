@@ -23,11 +23,16 @@
     <ClCompile Include="..\..\src\dllmain.cpp" />
     <ClCompile Include="..\..\src\entrypoint.cpp" />
     <ClCompile Include="..\..\src\loopback_audio_source.cpp" />
+    <ClCompile Include="..\..\src\MFT_resampler.cpp" />
+    <ClCompile Include="..\..\src\spatializer_plugin.cpp" />
     <ClCompile Include="..\..\src\stdafx.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\src\AudioPluginInterface.h" />
     <ClInclude Include="..\..\src\audio_device.h" />
     <ClInclude Include="..\..\src\loopback_audio_source.h" />
+    <ClInclude Include="..\..\src\MFT_resampler.h" />
+    <ClInclude Include="..\..\src\spatializer_plugin.h" />
     <ClInclude Include="..\..\src\stdafx.h" />
     <ClInclude Include="..\..\src\targetver.h" />
   </ItemGroup>
@@ -89,21 +94,25 @@
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(UNITY_PATH)\Editor\Data\PluginAPI;$(IncludePath)</IncludePath>
     <OutDir>..\unity\sandbox\Assets\Plugins\x86\</OutDir>
+    <TargetName>AudioPlugin_$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
     <IncludePath>$(UNITY_PATH)\Editor\Data\PluginAPI;$(IncludePath)</IncludePath>
     <OutDir>..\unity\sandbox\Assets\Plugins\x86_64\</OutDir>
+    <TargetName>AudioPlugin_$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(UNITY_PATH)\Editor\Data\PluginAPI;$(IncludePath)</IncludePath>
     <OutDir>..\unity\sandbox\Assets\Plugins\x86\</OutDir>
+    <TargetName>AudioPlugin_$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <IncludePath>$(UNITY_PATH)\Editor\Data\PluginAPI;$(IncludePath)</IncludePath>
     <OutDir>..\unity\sandbox\Assets\Plugins\x86_64\</OutDir>
+    <TargetName>AudioPlugin_$(ProjectName)</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -111,7 +120,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;LOOPBACKAUDIOSOURCE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;LOOPBACKAUDIOSOURCE_EXPORTS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -125,7 +134,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_USRDLL;LOOPBACKAUDIOSOURCE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_USRDLL;LOOPBACKAUDIOSOURCE_EXPORTS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -140,7 +149,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;LOOPBACKAUDIOSOURCE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;LOOPBACKAUDIOSOURCE_EXPORTS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -158,7 +167,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;LOOPBACKAUDIOSOURCE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;LOOPBACKAUDIOSOURCE_EXPORTS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
