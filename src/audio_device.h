@@ -25,14 +25,21 @@ public:
   void reset_buffer(int request_channel);
 
 private:
+  enum class Status
+  {
+    Constructed,
+    Preparing,
+    Playing,
+    Stopped,
+  };
+
   void run();
 
   Microsoft::WRL::ComPtr<IMMDeviceEnumerator> enumerator;
   Microsoft::WRL::ComPtr<IMMDevice> device;
   Microsoft::WRL::ComPtr<IAudioClient> audio_client;
   Microsoft::WRL::ComPtr<IAudioCaptureClient> capture_client;
-  bool initialized;
-  bool running;
+  Status status;
   int sampling_rate;
   int num_channels;
   int bit_per_sample;

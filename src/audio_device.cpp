@@ -10,7 +10,7 @@ using namespace Microsoft::WRL;
 AudioDevice* device;
 
 AudioDevice::AudioDevice()
-  : initialized(false)
+  : status(Status::Constructed)
 {}
 
 void AudioDevice::initialize(
@@ -98,19 +98,17 @@ void AudioDevice::initialize(
     recording_data.emplace_back();
     deinterleave_buffer[channel].resize(buffer_frame_count);
   }
-  // Unityは4096サンプルで取りに来る
-  pass_buffer.resize(4096);
-  zero_buffer.assign(4096, 0.0f);
+  // Unityは1024サンプルで取りに来る
+  pass_buffer.resize(1024);
+  zero_buffer.assign(1024, 0.0f);
 
-  running = true;
+  status = Status::Preparing;
   recorder = std::make_unique<std::thread>(&AudioDevice::run, this);
-
-  initialized = true;
 }
 
 bool AudioDevice::is_initialized()
 {
-  return initialized;
+  return status > Status::Constructed;
 }
 
 int AudioDevice::get_sampling_rate()
@@ -140,6 +138,12 @@ float* AudioDevice::get_buffer(int request_channel, int length)
     std::lock_guard<std::mutex> lock(recording_data_mutex);
     recording_data_size = recording_data[request_channel].size();
   }
+
+#if 0
+  // 呼び出し周期を調査
+  static auto previous_time = steady_clock::now();
+
+#endif
 
 #if 0
   // デバッグのため処理時間を計測
@@ -192,7 +196,7 @@ void AudioDevice::reset_buffer(int request_channel)
 
 void AudioDevice::run()
 {
-  while (running) {
+  while (status < Status::Stopped) {
     // バッファ長の1/2だけ待つ
     std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<size_t>((double)buffer_frame_count / sampling_rate / 2.0 * 1000.0)));
 
@@ -278,10 +282,10 @@ void AudioDevice::run()
 AudioDevice::~AudioDevice()
 {
   // 録音スレッドを停止
-  running = false;
+  status = Status::Stopped;
   recorder->join();
 
-  if (initialized) {
+  if (audio_client) {
     audio_client->Stop();
   }
 }
