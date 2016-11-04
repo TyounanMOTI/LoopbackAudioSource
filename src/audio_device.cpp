@@ -125,9 +125,6 @@ using namespace std::chrono;
 
 float* AudioDevice::get_buffer(int request_channel, int length)
 {
-  if (!is_initialized()) {
-    return nullptr;
-  }
   if (pass_buffer.size() < length || zero_buffer.size() < length) {
     pass_buffer.resize(length);
     zero_buffer.resize(length);
@@ -139,53 +136,31 @@ float* AudioDevice::get_buffer(int request_channel, int length)
     recording_data_size = recording_data[request_channel].size();
   }
 
-#if 0
-  // 呼び出し周期を調査
-  static auto previous_time = steady_clock::now();
-
-#endif
-
-#if 0
-  // デバッグのため処理時間を計測
-  auto start = steady_clock::now();
-#endif
-
-#if 0
-  // デバッグのためバッファ残量を出力
-  wchar_t print_string[256];
-  wsprintf(print_string, L"%d\n", recording_data_size);
-  OutputDebugString(print_string);
-#endif
-
-#if 0
-  // 録音が間に合っていない。バッファ長の1/3だけ待ってリトライ
-  while (recording_data_size < length) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<size_t>((double)buffer_frame_count / sampling_rate / 2.0 * 1000.0)));
+  // 録音バッファに十分な音声データが集まるまで無音を流して待機
+  switch (status) {
+  case Status::Preparing:
+    if (recording_data_size < prepare_buffer_size) {
+      return zero_buffer.data();
+    } else {
+      status = Status::Playing;
+    }
+    // 再生中へ遷移したのでbreakせずそのまま実行
+  case Status::Playing:
+    if (recording_data_size < length) {
+      // 録音が間に合っていない。音途切れ発生。
+      return zero_buffer.data();
+    }
     {
       std::lock_guard<std::mutex> lock(recording_data_mutex);
-      recording_data_size = recording_data[request_channel].size();
+      std::copy(recording_data[request_channel].begin(), recording_data[request_channel].begin() + length, pass_buffer.begin());
+      for (size_t i = 0; i < length; ++i) {
+        recording_data[request_channel].pop_front();
+      }
     }
-  }
-#endif
-  if (recording_data_size < length) {
-    // 録音が間に合っていない。音途切れ発生。
+    return pass_buffer.data();
+  default:
     return zero_buffer.data();
   }
-  {
-    std::lock_guard<std::mutex> lock(recording_data_mutex);
-    std::copy(recording_data[request_channel].begin(), recording_data[request_channel].begin() + length, pass_buffer.begin());
-    for (size_t i = 0; i < length; ++i) {
-      recording_data[request_channel].pop_front();
-    }
-  }
-#if 0
-  // デバッグのため処理時間を計測
-  auto elapsed = duration_cast<microseconds>(steady_clock::now() - start);
-  wchar_t print_string[256];
-  swprintf(print_string, L"%d\n", elapsed.count());
-  OutputDebugString(print_string);
-#endif
-  return pass_buffer.data();
 }
 
 void AudioDevice::reset_buffer(int request_channel)
@@ -210,11 +185,6 @@ void AudioDevice::run()
     UINT32 num_frames_available;
     DWORD flags;
     while (packet_length != 0) {
-#if 0
-      // デバッグのため処理時間を計測
-      auto start = steady_clock::now();
-#endif
-
       hr = capture_client->GetBuffer(
         &fragment,
         &num_frames_available,
@@ -262,15 +232,6 @@ void AudioDevice::run()
           }
         }
       }
-#if 0
-      // デバッグのため処理時間を計測
-      auto elapsed = duration_cast<microseconds>(steady_clock::now() - start);
-      wchar_t print_string[256];
-      if (num_frames_available > 0) {
-        swprintf(print_string, L"%f\n", (double)elapsed.count() / ((double)num_frames_available / sampling_rate * 1000.0 * 1000.0));
-        OutputDebugString(print_string);
-      }
-#endif
       hr = capture_client->GetNextPacketSize(&packet_length);
       if (FAILED(hr)) {
         throw std::runtime_error("Failed to get next packet size.");
