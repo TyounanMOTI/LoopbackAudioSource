@@ -19,6 +19,10 @@ void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces
 
 void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload()
 {
+  if (device) {
+    delete device;
+    device = nullptr;
+  }
   if (oculus_spatializer_dll) {
     FreeLibrary(oculus_spatializer_dll);
   }

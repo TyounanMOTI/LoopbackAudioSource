@@ -163,12 +163,6 @@ float* AudioDevice::get_buffer(int request_channel, int length)
   }
 }
 
-void AudioDevice::reset_buffer(int request_channel)
-{
-  std::lock_guard<std::mutex> lock(recording_data_mutex);
-  recording_data[request_channel].resize(0);
-}
-
 void AudioDevice::run()
 {
   while (status < Status::Stopped) {
