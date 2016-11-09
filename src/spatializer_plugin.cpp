@@ -182,10 +182,6 @@ UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ReleaseCallback(UnityAudioEffectSt
     auto oculus_spatializer_result = OculusSpatializer_ReleaseCallback(state);
     delete loopback_effect_data;
 
-    if (device) {
-      delete device;
-      device = nullptr;
-    }
     return oculus_spatializer_result;
   }
 }
