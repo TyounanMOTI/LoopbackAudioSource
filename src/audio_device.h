@@ -52,7 +52,7 @@ private:
 
   static const size_t max_channels = 2;
   static const size_t max_buffer_size = 1024 * 10;
-  static const size_t prepare_buffer_size = 1024 * 9;
+  static const size_t prepare_buffer_size = 1024 * 3;
   std::array<std::vector<float>, max_channels> deinterleave_buffer;
 
   std::unique_ptr<std::thread> recorder;
