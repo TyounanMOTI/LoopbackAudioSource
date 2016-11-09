@@ -169,67 +169,71 @@ void AudioDevice::run()
     // バッファ長の1/2だけ待つ
     std::this_thread::sleep_for(std::chrono::microseconds(static_cast<size_t>((double)buffer_frame_count / sampling_rate / 2.0 * 1000.0 * 1000.0)));
 
-    UINT32 total_frames = 0;
-    UINT32 packet_length;
-    auto hr = capture_client->GetNextPacketSize(&packet_length);
-    if (FAILED(hr)) {
-      throw std::runtime_error("Failed to get next packet size.");
-    }
-    BYTE *fragment;
-    UINT32 num_frames_available;
-    DWORD flags;
-    while (packet_length != 0) {
-      hr = capture_client->GetBuffer(
-        &fragment,
-        &num_frames_available,
-        &flags,
-        nullptr,
-        nullptr
-      );
-      if (FAILED(hr)) {
-        throw std::runtime_error("Failed to get buffer.");
-      }
-      assert(hr != AUDCLNT_S_BUFFER_EMPTY);
-      total_frames += num_frames_available;
-
-      if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
-        ZeroMemory(fragment, sizeof(BYTE) * bit_per_sample / 8 * num_frames_available * num_channels);
-      }
-
-      // リサンプラへ入力
-      resampler->write_buffer(fragment, sizeof(BYTE) * bit_per_sample / 8 * num_frames_available * num_channels);
-
-      hr = capture_client->ReleaseBuffer(num_frames_available);
-      if (FAILED(hr)) {
-        throw std::runtime_error("Failed to release buffer.");
-      }
-
-      // リサンプラから出力をとってくる
-      resampler_result.clear();
-      resampler->read_buffer(resampler_result);
-
-      for (size_t channel = 0; channel < num_channels; ++channel) {
-        deinterleave_buffer[channel].resize(resampler_result.size() / sizeof(float) * sizeof(BYTE) / num_channels);
-        for (size_t sample = channel; sample < deinterleave_buffer[channel].size() * num_channels; sample += num_channels) {
-          deinterleave_buffer[channel][sample / num_channels] = reinterpret_cast<float*>(resampler_result.data())[sample];
-        }
-
-        {
-          std::lock_guard<std::mutex> lock(recording_data_mutex);
-          std::copy(deinterleave_buffer[channel].begin(), deinterleave_buffer[channel].end(), std::back_inserter(recording_data[channel]));
-
-          // 古すぎるデータは捨てる。再生中に実行すると音途切れする
-          if (recording_data[channel].size() > max_buffer_size) {
-            for (size_t i = 0; i < recording_data[channel].size() - max_buffer_size; ++i) {
-              recording_data[channel].pop_front();
-            }
-          }
-        }
-      }
-      hr = capture_client->GetNextPacketSize(&packet_length);
+    try {
+      UINT32 total_frames = 0;
+      UINT32 packet_length;
+      auto hr = capture_client->GetNextPacketSize(&packet_length);
       if (FAILED(hr)) {
         throw std::runtime_error("Failed to get next packet size.");
       }
+      BYTE *fragment;
+      UINT32 num_frames_available;
+      DWORD flags;
+      while (packet_length != 0) {
+        hr = capture_client->GetBuffer(
+          &fragment,
+          &num_frames_available,
+          &flags,
+          nullptr,
+          nullptr
+        );
+        if (FAILED(hr)) {
+          throw std::runtime_error("Failed to get buffer.");
+        }
+        assert(hr != AUDCLNT_S_BUFFER_EMPTY);
+        total_frames += num_frames_available;
+
+        if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
+          ZeroMemory(fragment, sizeof(BYTE) * bit_per_sample / 8 * num_frames_available * num_channels);
+        }
+
+        // リサンプラへ入力
+        resampler->write_buffer(fragment, sizeof(BYTE) * bit_per_sample / 8 * num_frames_available * num_channels);
+
+        hr = capture_client->ReleaseBuffer(num_frames_available);
+        if (FAILED(hr)) {
+          throw std::runtime_error("Failed to release buffer.");
+        }
+
+        // リサンプラから出力をとってくる
+        resampler_result.clear();
+        resampler->read_buffer(resampler_result);
+
+        for (size_t channel = 0; channel < num_channels; ++channel) {
+          deinterleave_buffer[channel].resize(resampler_result.size() / sizeof(float) * sizeof(BYTE) / num_channels);
+          for (size_t sample = channel; sample < deinterleave_buffer[channel].size() * num_channels; sample += num_channels) {
+            deinterleave_buffer[channel][sample / num_channels] = reinterpret_cast<float*>(resampler_result.data())[sample];
+          }
+
+          {
+            std::lock_guard<std::mutex> lock(recording_data_mutex);
+            std::copy(deinterleave_buffer[channel].begin(), deinterleave_buffer[channel].end(), std::back_inserter(recording_data[channel]));
+
+            // 古すぎるデータは捨てる。再生中に実行すると音途切れする
+            if (recording_data[channel].size() > max_buffer_size) {
+              for (size_t i = 0; i < recording_data[channel].size() - max_buffer_size; ++i) {
+                recording_data[channel].pop_front();
+              }
+            }
+          }
+        }
+        hr = capture_client->GetNextPacketSize(&packet_length);
+        if (FAILED(hr)) {
+          throw std::runtime_error("Failed to get next packet size.");
+        }
+      }
+    } catch (const std::exception&) {
+      // とりあえずクラッシュを回避する。復帰にはアプリの再起動が必要。
     }
   }
 }
