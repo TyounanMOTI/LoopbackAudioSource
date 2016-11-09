@@ -173,7 +173,7 @@ void AudioDevice::run()
 {
   while (status < Status::Stopped) {
     // バッファ長の1/2だけ待つ
-    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<size_t>((double)buffer_frame_count / sampling_rate / 2.0 * 1000.0)));
+    std::this_thread::sleep_for(std::chrono::microseconds(static_cast<size_t>((double)buffer_frame_count / sampling_rate / 2.0 * 1000.0 * 1000.0)));
 
     UINT32 total_frames = 0;
     UINT32 packet_length;
@@ -201,6 +201,7 @@ void AudioDevice::run()
       if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
         ZeroMemory(fragment, sizeof(BYTE) * bit_per_sample / 8 * num_frames_available * num_channels);
       }
+
       // リサンプラへ入力
       resampler->write_buffer(fragment, sizeof(BYTE) * bit_per_sample / 8 * num_frames_available * num_channels);
 
@@ -213,7 +214,6 @@ void AudioDevice::run()
       resampler_result.clear();
       resampler->read_buffer(resampler_result);
 
-      // 32bit float前提でまずは作る
       for (size_t channel = 0; channel < num_channels; ++channel) {
         deinterleave_buffer[channel].resize(resampler_result.size() / sizeof(float) * sizeof(BYTE) / num_channels);
         for (size_t sample = channel; sample < deinterleave_buffer[channel].size() * num_channels; sample += num_channels) {
