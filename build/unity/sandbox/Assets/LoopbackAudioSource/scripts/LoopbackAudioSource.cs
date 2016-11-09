@@ -10,6 +10,11 @@ public class LoopbackAudioSource : MonoBehaviour {
 
 	void Start() {
 		SetParameter();
+
+		var clip = AudioClip.Create("Loopback AudioSource", 1, 1, 48000, true);
+		var source = GetComponent<AudioSource>();
+		source.clip = clip;
+		source.Play();
 	}
 
 	void Update()
