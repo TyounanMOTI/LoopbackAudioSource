@@ -22,7 +22,6 @@ public:
   int get_sampling_rate();
   int get_num_channels();
   float* get_buffer(int request_channel, int length);
-  void reset_buffer(int request_channel);
 
 private:
   enum class Status
