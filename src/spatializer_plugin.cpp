@@ -3,6 +3,8 @@
 #include <string.h>
 #include <windows.h>
 #include <mutex>
+#include <array>
+#include <algorithm>
 
 HMODULE oculus_spatializer_dll;
 UnityGetAudioEffectDefinitionsFunc OculusSpatializer_UnityGetAudioEffectDefinitions;
@@ -198,8 +200,11 @@ UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectSt
     return UNITY_AUDIODSP_OK;
   }
 
+  static std::array<bool, AudioDevice::max_channels> previous_enabled{ false, false };
   bool enabled;
   int channel;
+  bool need_reset = false;
+  bool need_catchup = false;
   {
     std::lock_guard<std::mutex> lock(state_mutex);
 
@@ -210,7 +215,20 @@ UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectSt
     EffectData* loopback_effect_data = state->GetEffectData<EffectData>();
     enabled = loopback_effect_data->enabled;
     channel = loopback_effect_data->channel;
+
+    if (std::all_of(previous_enabled.begin(), previous_enabled.end(), [](bool x) { return x == false; })) {
+      need_reset = true;
+    } else if (previous_enabled[channel] == false && !enabled) {
+      need_catchup = true;
+    }
   }
+  if (need_reset) {
+    device->reset_buffer();
+  }
+  if (need_catchup) {
+    device->catch_up(channel);
+  }
+  previous_enabled[channel] = enabled;
   if (enabled) {
     auto recorded_buffer = device->get_buffer(channel, length);
     // ¶ƒ`ƒƒƒ“ƒlƒ‹‚É“ü—Í‚·‚é

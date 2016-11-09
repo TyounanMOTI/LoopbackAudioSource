@@ -163,6 +163,31 @@ float* AudioDevice::get_buffer(int request_channel, int length)
   }
 }
 
+void AudioDevice::catch_up(int request_channel)
+{
+  std::lock_guard<std::mutex> lock(recording_data_mutex);
+  auto min_size = recording_data[0].size();
+  for (auto& recording_channel : recording_data) {
+    auto size = recording_channel.size();
+    if (size < min_size) {
+      min_size = size;
+    }
+  }
+
+  while (recording_data[request_channel].size() >= min_size) {
+    recording_data[request_channel].pop_front();
+  }
+}
+
+void AudioDevice::reset_buffer()
+{
+  std::lock_guard<std::mutex> lock(recording_data_mutex);
+  for (auto& recording_channel : recording_data) {
+    recording_channel.clear();
+  }
+  status = Status::Preparing;
+}
+
 void AudioDevice::run()
 {
   while (status < Status::Stopped) {

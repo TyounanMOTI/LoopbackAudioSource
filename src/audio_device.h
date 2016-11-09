@@ -22,7 +22,10 @@ public:
   int get_sampling_rate();
   int get_num_channels();
   float* get_buffer(int request_channel, int length);
+  void catch_up(int request_channel);
+  void reset_buffer();
 
+  static const size_t max_channels = 2;
 private:
   enum class Status
   {
@@ -49,7 +52,6 @@ private:
   std::vector<float> zero_buffer;
   std::vector<BYTE> resampler_result;
 
-  static const size_t max_channels = 2;
   static const size_t max_buffer_size = 1024 * 10;
   static const size_t prepare_buffer_size = 1024 * 3;
   std::array<std::vector<float>, max_channels> deinterleave_buffer;
