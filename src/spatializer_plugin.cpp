@@ -98,15 +98,15 @@ extern "C" UNITY_AUDIODSP_EXPORT_API int UnityGetAudioEffectDefinitions(UnityAud
            sizeof(UnityAudioParameterDefinition) * oculus_spatializer_numparams);
 
   OculusSpatializer_CreateCallback = oculus_spatializer_definition->create;
-OculusSpatializer_ReleaseCallback = oculus_spatializer_definition->release;
-OculusSpatializer_ProcessCallback = oculus_spatializer_definition->process;
-OculusSpatializer_SetFloatParameterCallback = oculus_spatializer_definition->setfloatparameter;
-OculusSpatializer_GetFloatParameterCallback = oculus_spatializer_definition->getfloatparameter;
-OculusSpatializer_GetFloatBufferCallback = oculus_spatializer_definition->getfloatbuffer;
+  OculusSpatializer_ReleaseCallback = oculus_spatializer_definition->release;
+  OculusSpatializer_ProcessCallback = oculus_spatializer_definition->process;
+  OculusSpatializer_SetFloatParameterCallback = oculus_spatializer_definition->setfloatparameter;
+  OculusSpatializer_GetFloatParameterCallback = oculus_spatializer_definition->getfloatparameter;
+  OculusSpatializer_GetFloatBufferCallback = oculus_spatializer_definition->getfloatbuffer;
 
-definition_array[0] = &definition;
-*definitionptr = definition_array;
-return 1;
+  definition_array[0] = &definition;
+  *definitionptr = definition_array;
+  return 1;
 }
 
 struct EffectData
@@ -202,9 +202,8 @@ UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectSt
     return UNITY_AUDIODSP_OK;
   }
 
-#if 0
-  auto start = steady_clock::now();
-#endif
+  bool enabled;
+  int channel;
   {
     std::lock_guard<std::mutex> lock(state_mutex);
 
@@ -213,27 +212,24 @@ UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectSt
     }
 
     EffectData* loopback_effect_data = state->GetEffectData<EffectData>();
-
-    if (loopback_effect_data->enabled) {
-      auto recorded_buffer = device->get_buffer(loopback_effect_data->channel, length);
-      // 左チャンネルに入力する
-      for (unsigned int i = 0; i < length * outchannels; i += outchannels) {
-        inbuffer[i] = recorded_buffer[i / outchannels];
-        inbuffer[i + 1] = 0.0f;
-      }
+    enabled = loopback_effect_data->enabled;
+    channel = loopback_effect_data->channel;
+  }
+  if (enabled) {
+    auto recorded_buffer = device->get_buffer(channel, length);
+    // 左チャンネルに入力する
+    for (unsigned int i = 0; i < length * outchannels; i += outchannels) {
+      inbuffer[i] = recorded_buffer[i / outchannels];
+      inbuffer[i + 1] = 0.0f;
     }
+  }
 
+  {
+    std::lock_guard<std::mutex> lock(state_mutex);
+    EffectData* loopback_effect_data = state->GetEffectData<EffectData>();
     state->effectdata = loopback_effect_data->oculus_spatializer_data;
     auto result = OculusSpatializer_ProcessCallback(state, inbuffer, outbuffer, length, inchannels, outchannels);
     state->effectdata = loopback_effect_data;
-
-#if 0
-    // デバッグのため処理時間を計測
-    auto elapsed = duration_cast<microseconds>(steady_clock::now() - start);
-    wchar_t print_string[256];
-    wsprintf(print_string, L"%d\n", elapsed.count());
-    OutputDebugString(print_string);
-#endif
 
     return result;
   }
@@ -272,7 +268,6 @@ UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK SetFloatParameterCallback(UnityAud
       EffectData* loopback_effect_data = state->GetEffectData<EffectData>();
       state->effectdata = loopback_effect_data->oculus_spatializer_data;
       auto oculus_spatializer_result = OculusSpatializer_SetFloatParameterCallback(state, index, value);
-      loopback_effect_data->oculus_spatializer_data = state->effectdata;
       state->effectdata = loopback_effect_data;
       return oculus_spatializer_result;
     }
