@@ -174,7 +174,7 @@ void AudioDevice::catch_up(int request_channel)
     }
   }
 
-  while (recording_data[request_channel].size() >= min_size) {
+  while (recording_data[request_channel].size() > min_size) {
     recording_data[request_channel].pop_front();
   }
 }
