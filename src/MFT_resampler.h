@@ -22,6 +22,8 @@ public:
 private:
   Microsoft::WRL::ComPtr<IMFTransform> resampler;
   Microsoft::WRL::ComPtr<IWMResamplerProps> properties;
+  Microsoft::WRL::ComPtr<IMFSample> output_sample;
+  Microsoft::WRL::ComPtr<IMFMediaBuffer> input_media_buffer;
   std::vector<BYTE> output_fragment_buffer;
   DWORD input_stream_id, output_stream_id;
 };

@@ -67,7 +67,6 @@ MFT_resampler::MFT_resampler(
   input_stream_id = input_stream_ids[0];
   output_stream_id = output_stream_ids[0];
 
-
   Microsoft::WRL::ComPtr<IMFMediaType> input_type;
   MFCreateMediaType(&input_type);
   // “ü—Í‚ÍFloat‘O’ñ‚Å‘g‚Þ
@@ -124,6 +123,24 @@ MFT_resampler::MFT_resampler(
   }
 
   output_fragment_buffer.resize(output_stream_info.cbSize);
+
+  hr = MFCreateSample(&output_sample);
+  if (FAILED(hr)) {
+    throw std::runtime_error("Failed to create MF sample.");
+  }
+
+  Microsoft::WRL::ComPtr<IMFMediaBuffer> output_media_buffer;
+  hr = MFCreateMemoryBuffer((DWORD)output_fragment_buffer.size(), &output_media_buffer);
+  if (FAILED(hr)) {
+    throw std::runtime_error("Failed to create media buffer.");
+  }
+
+  hr = output_sample->AddBuffer(output_media_buffer.Get());
+  if (FAILED(hr)) {
+    throw std::runtime_error("Failed to add buffer.");
+  }
+
+  hr = MFCreateMemoryBuffer(1024 * 10, &input_media_buffer);
 }
 
 MFT_resampler::~MFT_resampler()
@@ -133,23 +150,20 @@ MFT_resampler::~MFT_resampler()
 
 void MFT_resampler::write_buffer(BYTE * buffer, DWORD byte_length)
 {
-  Microsoft::WRL::ComPtr<IMFMediaBuffer> media_buffer;
-  auto hr = MFCreateMemoryBuffer(byte_length, &media_buffer);
-
   BYTE *media_buffer_data;
-  hr = media_buffer->Lock(&media_buffer_data, nullptr, nullptr);
+  auto hr = input_media_buffer->Lock(&media_buffer_data, nullptr, nullptr);
   if (FAILED(hr)) {
     throw std::runtime_error("Failed to Lock media buffer.");
   }
 
   memcpy_s(media_buffer_data, byte_length, buffer, byte_length);
 
-  hr = media_buffer->Unlock();
+  hr = input_media_buffer->Unlock();
   if (FAILED(hr)) {
     throw std::runtime_error("Failed to Unlock media buffer.");
   }
 
-  hr = media_buffer->SetCurrentLength(byte_length);
+  hr = input_media_buffer->SetCurrentLength(byte_length);
   if (FAILED(hr)) {
     throw std::runtime_error("Failed to set current length of buffer.");
   }
@@ -160,7 +174,7 @@ void MFT_resampler::write_buffer(BYTE * buffer, DWORD byte_length)
     throw std::runtime_error("Failed to create MF sample.");
   }
 
-  hr = sample->AddBuffer(media_buffer.Get());
+  hr = sample->AddBuffer(input_media_buffer.Get());
   if (FAILED(hr)) {
     throw std::runtime_error("Failed to add buffer to MF sample.");
   }
@@ -176,30 +190,15 @@ void MFT_resampler::write_buffer(BYTE * buffer, DWORD byte_length)
 void MFT_resampler::read_buffer(std::vector<BYTE>& output)
 {
   while (true) {
-    Microsoft::WRL::ComPtr<IMFSample> sample;
-    auto hr = MFCreateSample(&sample);
-    if (FAILED(hr)) {
-      throw std::runtime_error("Failed to create MF sample.");
-    }
-
-    Microsoft::WRL::ComPtr<IMFMediaBuffer> media_buffer;
-    hr = MFCreateMemoryBuffer((DWORD)output_fragment_buffer.size(), &media_buffer);
-    if (FAILED(hr)) {
-      throw std::runtime_error("Failed to create media buffer.");
-    }
-
-    hr = sample->AddBuffer(media_buffer.Get());
-    if (FAILED(hr)) {
-      throw std::runtime_error("Failed to add buffer.");
-    }
-
     MFT_OUTPUT_DATA_BUFFER resampler_result[1];
-    resampler_result[0].pSample = sample.Get();
+    resampler_result[0].pSample = output_sample.Get();
     resampler_result[0].dwStreamID = output_stream_id;
     resampler_result[0].pEvents = NULL;
     resampler_result[0].dwStatus = 0;
     DWORD status;
-    hr = resampler->ProcessOutput(0, 1, resampler_result, &status);
+
+    auto hr = resampler->ProcessOutput(0, 1, resampler_result, &status);
+
     if (hr == MF_E_TRANSFORM_NEED_MORE_INPUT) {
       break;
     } else if (FAILED(hr)) {
@@ -207,7 +206,7 @@ void MFT_resampler::read_buffer(std::vector<BYTE>& output)
     }
 
     Microsoft::WRL::ComPtr<IMFMediaBuffer> output_buffer;
-    hr = sample->ConvertToContiguousBuffer(&output_buffer);
+    hr = output_sample->ConvertToContiguousBuffer(&output_buffer);
     if (FAILED(hr)) {
       throw std::runtime_error("Failed to convert to contiguous buffer.");
     }
