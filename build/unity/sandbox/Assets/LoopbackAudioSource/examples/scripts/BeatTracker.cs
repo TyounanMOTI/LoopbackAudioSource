@@ -1,6 +1,8 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
+using System.Linq;
 
 public class BeatTracker : MonoBehaviour {
 
@@ -35,22 +37,26 @@ public class BeatTracker : MonoBehaviour {
 	void Update () {
 		// RMS, BPMなどの取得にはUpdateAnalyzer()が必要
 		UpdateAnalyzer();
-
+#if true
 		// BPM解析はまだ実験中。
-		GetComponent<Text>().text = GetBPM().ToString();
-
-		// BPM Scoreの最大値とその添字を取得
-		var max = 0.0f;
-		var max_index = 0;
-		var min = Mathf.Infinity;
+		// BPMスコアの順位を取得
+		// - スコアをDictionary Listへ
+		var score = new Dictionary<int, float>();
 		for (var i = 0; i < 180 - 45; ++i) {
-			if (GetBPMScore(i) > max) {
-				max = GetBPMScore(i);
-				max_index = i;
-			}
-			if (GetBPMScore(i) < min) {
-				min = GetBPMScore(i);
-			}
+			score[i] = GetBPMScore(i);
+		}
+
+		var sorted = score.OrderByDescending(x => x.Value);
+		float max = sorted.Select(x => x.Value).First();
+		float min = sorted.Select(x => x.Value).Last();
+		int max_index = sorted.Select(x => x.Key).First();
+
+		// 順位を表示
+		GetComponent<Text>().text = "top: " + GetBPM() + "\n";
+		GetComponent<Text>().color = Color.black;
+		for (var i = 0; i < 7; ++i) {
+			int index = sorted.Select(x => x.Key).ElementAt(i);
+			GetComponent<Text>().text += (i + 1) + ": " + 11250.0 / (index + 45) + "\n";
 		}
 
 		// Draw BPM Score
@@ -62,20 +68,25 @@ public class BeatTracker : MonoBehaviour {
 					Color.red);
 			} else {
 				var color = Color.red;
-				if (i == 86 - 45) {
+				// スコアが7位以内なら色付け
+				if (i == 93 - 45) {
+					color = Color.green;
+					GetComponent<Text>().text += GetBPMScore(i) + "\n";
+				}
+				if (sorted.Select(x => x.Key).Take(7).ToList().Exists(x => x == i)) {
 					color = Color.cyan;
 				}
+				if (i == max_index) {
+					color = Color.yellow;
+					GetComponent<Text>().text += GetBPMScore(max_index) + "\n";
+				}
+
 				Debug.DrawLine(
 					new Vector3(i / 5.0f, (GetBPMScore(i) - min) / (max - min), 0),
 					new Vector3(i / 5.0f, 0, 0),
 					color);
 			}
 		}
-		// Draw Estimated BPM
-		Debug.DrawLine(
-			new Vector3(max_index / 5.0f, (GetBPMScore(max_index) - min) / (max - min), 0),
-			new Vector3(max_index / 5.0f, 0, 0),
-			Color.yellow);
 
 		var window_size = GetWindowSize();
 		for (var i = 0; i < window_size - 1; ++i) {
@@ -91,5 +102,6 @@ public class BeatTracker : MonoBehaviour {
 				new Vector3((i + 1) / 120.0f, GetRMS(window_size - 1 - (i + 1)) * 10.0f + 6.0f, 0),
 				Color.magenta);
 		}
+#endif
 	}
 }

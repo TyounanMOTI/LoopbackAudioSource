@@ -37,7 +37,7 @@ void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Initialize(int sampling_rate)
       device->initialize(32, sampling_rate);
     }
     if (!analyzer) {
-      analyzer = new Analyzer(device);
+      analyzer = new Analyzer(device, sampling_rate);
     }
     analyzer->reset();
   } catch (const std::exception&) {

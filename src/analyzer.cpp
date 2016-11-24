@@ -45,9 +45,10 @@ float rms(std::vector<float>::const_iterator begin,
 
 Analyzer* analyzer;
 
-Analyzer::Analyzer(AudioDevice * device)
+Analyzer::Analyzer(AudioDevice * device, int sampling_rate)
   : device(device)
   , bpm(0.0f)
+  , sampling_rate(sampling_rate)
 {
   vu_bin.resize(window_size);
   rms_bin.resize(window_size);
@@ -120,14 +121,14 @@ void Analyzer::update()
     int max_score_index = 0;
     auto max_score = 0.0;
     auto min_score = (double)INFINITY;
-    for (size_t interval = min_interval;
+    for (int interval = min_interval;
          interval <= max_interval;
          ++interval) {
       auto score = 0.0;
       auto count = 0.0;
       for (int index = window_size - 1;
            index >= 0;
-           index -= (int)interval) {
+           index -= interval) {
         score += vu_bin[index];
         count++;
       }
@@ -135,7 +136,7 @@ void Analyzer::update()
       score /= count;
       bpm_score_frame[interval - min_interval] = score;
       if (score > max_score) {
-        max_score_index = (int)(interval - min_interval);
+        max_score_index = interval - min_interval;
         max_score = score;
       }
       if (score < min_score) {
@@ -157,7 +158,7 @@ void Analyzer::update()
       std::transform(bpm_score_frame.begin(),
                      bpm_score_frame.end(),
                      bpm_score_frame.begin(),
-                     [=](double x) { return (x - min_score) / (max_score - min_score); });
+                     [=](double x) { return (x - min_score) / -(max_score - min_score); });
 
       // ’Z”ÍˆÍË—ÍÝ’è
       if (max_score_index - 2 >= 0) {
@@ -178,7 +179,7 @@ void Analyzer::update()
                      bpm_score_frame.end(),
                      bpm_score.begin(),
                      bpm_score.begin(),
-                     [](double x, double y) { return x + y * 0.9999; });
+                     [](double x, double y) { return x + y * 0.999; });
     }
   }
   size_t max_index = 0;
@@ -189,6 +190,6 @@ void Analyzer::update()
   }
 
   const float max_score_interval = (float)(max_index + min_interval);
-  const float packet_per_minute = device->get_sampling_rate() / (float)packet_size * 60.0f;
+  const float packet_per_minute = sampling_rate / (float)packet_size * 60.0f;
   bpm = packet_per_minute / max_score_interval;
 }

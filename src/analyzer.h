@@ -7,12 +7,12 @@ class AudioDevice;
 class Analyzer
 {
 public:
-  static const size_t packet_size = 256;
-  static const size_t window_size = 2000;
-  static const size_t min_interval = 45;
-  static const size_t max_interval = 180;
+  static const int packet_size = 256;
+  static const int window_size = 2000;
+  static const int min_interval = 45;
+  static const int max_interval = 180;
 
-  Analyzer(AudioDevice* device);
+  Analyzer(AudioDevice* device, int sampling_rate);
   float get_bpm();
   float get_bpm_vu(int index);
   float get_bpm_score(int index);
@@ -28,6 +28,7 @@ private:
   std::array<double, max_interval - min_interval + 1> bpm_score;
   std::array<double, max_interval - min_interval + 1> bpm_score_frame;
   float bpm;
+  int sampling_rate;
 };
 
 extern Analyzer* analyzer;
