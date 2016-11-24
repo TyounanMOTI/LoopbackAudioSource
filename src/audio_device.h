@@ -13,6 +13,8 @@
 class AudioDevice
 {
 public:
+  static const size_t max_channels = 2;
+
   AudioDevice();
   ~AudioDevice();
   void initialize(
@@ -22,10 +24,11 @@ public:
   int get_sampling_rate();
   int get_num_channels();
   float* get_buffer(int request_channel, int length);
+  std::array<std::vector<float>, max_channels> get_analyzer_data(size_t alignment);
   void catch_up(int request_channel);
   void reset_buffer();
+  void reset_analyzer_data();
 
-  static const size_t max_channels = 2;
 private:
   enum class Status
   {
@@ -48,6 +51,11 @@ private:
   UINT32 buffer_frame_count;
   std::vector<std::deque<float>> recording_data;
   std::mutex recording_data_mutex;
+
+  // 再生ビットレートが早すぎる問題が解決するまでは、解析バッファを別に持つ。
+  std::array<std::deque<float>, max_channels> analyzer_data;
+  std::mutex analyzer_data_mutex;
+
   std::vector<float> pass_buffer;
   std::vector<float> zero_buffer;
   std::vector<BYTE> resampler_result;

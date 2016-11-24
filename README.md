@@ -32,6 +32,7 @@ MIT License
 # Acknowledgement
 - Oculus Audio SDK Unity Plugin: Copyright (c) 2015 Oculus VR, LLC.
 - Unity Native Audio Plugin SDK: Copyright (c) 2014, Unity Technologies.
+- BPM解析は[今夜はHow to Beat It. −リアルタイムBPM解析手法とさらにすすんだオーディオ信号処理−](https://cedil.cesa.or.jp/cedil_sessions/view/731)を参考に実験中です。
 
 # 既知の問題 Known Issue
 数分ごとに音途切れが発生することがあります。修正調査中です。

@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\analyzer.cpp" />
     <ClCompile Include="..\..\src\audio_device.cpp" />
     <ClCompile Include="..\..\src\dllmain.cpp" />
     <ClCompile Include="..\..\src\entrypoint.cpp" />
@@ -28,6 +29,7 @@
     <ClCompile Include="..\..\src\stdafx.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\src\analyzer.h" />
     <ClInclude Include="..\..\src\AudioPluginInterface.h" />
     <ClInclude Include="..\..\src\audio_device.h" />
     <ClInclude Include="..\..\src\loopback_audio_source.h" />

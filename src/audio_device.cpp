@@ -121,8 +121,6 @@ int AudioDevice::get_num_channels()
   return num_channels;
 }
 
-using namespace std::chrono;
-
 float* AudioDevice::get_buffer(int request_channel, int length)
 {
   if (pass_buffer.size() < length || zero_buffer.size() < length) {
@@ -163,6 +161,40 @@ float* AudioDevice::get_buffer(int request_channel, int length)
   }
 }
 
+std::array<std::vector<float>, AudioDevice::max_channels> AudioDevice::get_analyzer_data(size_t alignment)
+{
+  std::array<std::vector<float>, max_channels> result;
+
+  // 十分な音声データが集まるまでスキップ
+  if (analyzer_data[0].size() < alignment) {
+    return result;
+  }
+
+  {
+    std::lock_guard<std::mutex> lock(analyzer_data_mutex);
+    // 各チャンネルのうち最小のアライン済みサイズを計算
+    auto result_size = INT_MAX;
+    for (size_t channel = 0; channel < max_channels; ++channel) {
+      auto size = analyzer_data[channel].size() - (analyzer_data[channel].size() % alignment);
+      if (size < result_size) {
+        result_size = size;
+      }
+    }
+    assert(result_size % alignment == 0);
+
+    for (size_t channel = 0; channel < max_channels; ++channel) {
+      result[channel].resize(result_size);
+      std::copy(analyzer_data[channel].begin(),
+                analyzer_data[channel].begin() + result_size,
+                result[channel].begin());
+      for (size_t i = 0; i < result_size; ++i) {
+        analyzer_data[channel].pop_front();
+      }
+    }
+  }
+  return result;
+}
+
 void AudioDevice::catch_up(int request_channel)
 {
   std::lock_guard<std::mutex> lock(recording_data_mutex);
@@ -181,11 +213,21 @@ void AudioDevice::catch_up(int request_channel)
 
 void AudioDevice::reset_buffer()
 {
-  std::lock_guard<std::mutex> lock(recording_data_mutex);
-  for (auto& recording_channel : recording_data) {
-    recording_channel.clear();
+  {
+    std::lock_guard<std::mutex> lock(recording_data_mutex);
+    for (auto& recording_channel : recording_data) {
+      recording_channel.clear();
+    }
   }
   status = Status::Preparing;
+}
+
+void AudioDevice::reset_analyzer_data()
+{
+  std::lock_guard<std::mutex> lock(analyzer_data_mutex);
+  for (auto& channel : analyzer_data) {
+    channel.clear();
+  }
 }
 
 void AudioDevice::run()
@@ -248,6 +290,20 @@ void AudioDevice::run()
             if (recording_data[channel].size() > max_buffer_size) {
               for (size_t i = 0; i < recording_data[channel].size() - max_buffer_size; ++i) {
                 recording_data[channel].pop_front();
+              }
+            }
+          }
+          {
+            std::lock_guard<std::mutex> lock(analyzer_data_mutex);
+
+            // 解析用にコピー
+            std::copy(deinterleave_buffer[channel].begin(),
+                      deinterleave_buffer[channel].end(),
+                      std::back_inserter(analyzer_data[channel]));
+            // 古すぎるデータは捨てる
+            if (analyzer_data[channel].size() > max_buffer_size) {
+              for (size_t i = 0; i < analyzer_data[channel].size() - max_buffer_size; ++i) {
+                analyzer_data[channel].pop_front();
               }
             }
           }
