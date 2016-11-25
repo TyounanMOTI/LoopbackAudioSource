@@ -20,6 +20,7 @@ public:
   void initialize(
     int buffer_length_millisec,
     int output_sampling_rate);
+  void Finalize();
   bool is_initialized();
   int get_sampling_rate();
   int get_num_channels();

@@ -192,6 +192,11 @@ using namespace std::chrono;
 
 UNITY_AUDIODSP_RESULT UNITY_AUDIODSP_CALLBACK ProcessCallback(UnityAudioEffectState* state, float* inbuffer, float* outbuffer, unsigned int length, int inchannels, int outchannels)
 {
+  if (device->is_initialized() == false) {
+    // Ä‰Šú‰»
+    device->initialize(32, state->samplerate);
+  }
+
   if (!OculusSpatializer_ProcessCallback) {
     return UNITY_AUDIODSP_ERR_UNSUPPORTED;
   }

@@ -90,6 +90,11 @@ void Analyzer::reset()
 
 void Analyzer::update()
 {
+  if (device->is_initialized() == false) {
+    // デバイスを再初期化
+    device->initialize(32, sampling_rate);
+  }
+
   auto analyzer_data = device->get_analyzer_data(packet_size);
   assert(analyzer_data.size() >= 2);
   if (analyzer_data[0].size() == 0) {

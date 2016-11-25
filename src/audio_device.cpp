@@ -102,13 +102,28 @@ void AudioDevice::initialize(
   pass_buffer.resize(1024);
   zero_buffer.assign(1024, 0.0f);
 
+  if (recorder && recorder->joinable()) {
+    status = Status::Stopped;
+    recorder->join();
+  }
   status = Status::Preparing;
   recorder = std::make_unique<std::thread>(&AudioDevice::run, this);
 }
 
+void AudioDevice::Finalize()
+{
+  // 録音スレッドを停止
+  status = Status::Stopped;
+  recorder->join();
+
+  if (audio_client) {
+    audio_client->Stop();
+  }
+}
+
 bool AudioDevice::is_initialized()
 {
-  return status > Status::Constructed;
+  return status > Status::Constructed && status < Status::Stopped;
 }
 
 int AudioDevice::get_sampling_rate()
@@ -314,18 +329,16 @@ void AudioDevice::run()
         }
       }
     } catch (const std::exception&) {
-      // とりあえずクラッシュを回避する。復帰にはアプリの再起動が必要。
+      status = Status::Stopped;
+
+      if (audio_client) {
+        audio_client->Stop();
+      }
     }
   }
 }
 
 AudioDevice::~AudioDevice()
 {
-  // 録音スレッドを停止
-  status = Status::Stopped;
-  recorder->join();
-
-  if (audio_client) {
-    audio_client->Stop();
-  }
+  Finalize();
 }
