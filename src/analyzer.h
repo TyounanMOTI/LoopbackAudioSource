@@ -24,7 +24,6 @@ private:
   AudioDevice* device;
   std::deque<float> vu_bin;
   std::deque<float> rms_bin;
-  std::array<float, window_size> low_pass_vu_bin;
   std::array<double, max_interval - min_interval + 1> bpm_score;
   std::array<double, max_interval - min_interval + 1> bpm_score_frame;
   float bpm;
