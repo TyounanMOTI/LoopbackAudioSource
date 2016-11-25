@@ -173,9 +173,9 @@ std::array<std::vector<float>, AudioDevice::max_channels> AudioDevice::get_analy
   {
     std::lock_guard<std::mutex> lock(analyzer_data_mutex);
     // 各チャンネルのうち最小のアライン済みサイズを計算
-    auto result_size = INT_MAX;
+    size_t result_size = INT_MAX;
     for (size_t channel = 0; channel < max_channels; ++channel) {
-      auto size = analyzer_data[channel].size() - (analyzer_data[channel].size() % alignment);
+      size_t size = analyzer_data[channel].size() - (analyzer_data[channel].size() % alignment);
       if (size < result_size) {
         result_size = size;
       }

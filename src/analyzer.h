@@ -17,6 +17,7 @@ public:
   float get_bpm_vu(int index);
   float get_bpm_score(int index);
   float get_rms(int index);
+  float get_milliseconds_to_next_beat();
   void reset();
   void update();
 
@@ -27,6 +28,7 @@ private:
   std::array<double, max_interval - min_interval + 1> bpm_score;
   std::array<double, max_interval - min_interval + 1> bpm_score_frame;
   float bpm;
+  float milliseconds_to_next_beat;
   int sampling_rate;
 };
 

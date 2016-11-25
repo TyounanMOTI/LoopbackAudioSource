@@ -91,6 +91,14 @@ float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetRMS(int index)
   return analyzer->get_rms(index);
 }
 
+float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetMillisecondsToNextBeat(int index)
+{
+  if (!analyzer) {
+    return 0.0f;
+  }
+  return analyzer->get_milliseconds_to_next_beat();
+}
+
 int UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetWindowSize()
 {
   if (!analyzer) {

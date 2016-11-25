@@ -66,6 +66,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\LoopbackAudioSource\examples\scripts\BeatSphere.cs" />
     <Compile Include="Assets\LoopbackAudioSource\examples\scripts\BeatTracker.cs" />
     <Compile Include="Assets\LoopbackAudioSource\examples\scripts\EightBandLevelViewer.cs" />
     <Compile Include="Assets\LoopbackAudioSource\scripts\LoopbackAudioSource.cs" />

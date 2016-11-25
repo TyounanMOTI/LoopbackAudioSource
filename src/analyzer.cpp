@@ -48,6 +48,7 @@ Analyzer* analyzer;
 Analyzer::Analyzer(AudioDevice * device, int sampling_rate)
   : device(device)
   , bpm(0.0f)
+  , milliseconds_to_next_beat(0.0f)
   , sampling_rate(sampling_rate)
 {
   vu_bin.resize(window_size);
@@ -72,6 +73,11 @@ float Analyzer::get_bpm_score(int index)
 float Analyzer::get_rms(int index)
 {
   return rms_bin[index];
+}
+
+float Analyzer::get_milliseconds_to_next_beat()
+{
+  return milliseconds_to_next_beat;
 }
 
 void Analyzer::reset()
@@ -189,7 +195,23 @@ void Analyzer::update()
     }
   }
 
-  const float max_score_interval = (float)(max_index + min_interval);
+  const auto max_score_interval = max_index + min_interval;
   const float packet_per_minute = sampling_rate / (float)packet_size * 60.0f;
-  bpm = packet_per_minute / max_score_interval;
+  bpm = packet_per_minute / static_cast<const float>(max_score_interval);
+
+  // Å‰‚Ì”‚ğŒŸõ‚·‚é
+  size_t max_first_beat_score_offset = 0;
+  double max_first_beat_score = 0.0;
+  for (size_t offset = 0; offset < max_score_interval; ++offset) {
+    double score = 0.0;
+    for (size_t index = offset; index < window_size; index += max_score_interval) {
+      score += vu_bin[index];
+    }
+    if (score > max_first_beat_score) {
+      max_first_beat_score = score;
+      max_first_beat_score_offset = offset;
+    }
+  }
+  float sample_to_next_beat = (float)max_first_beat_score_offset * packet_size;
+  milliseconds_to_next_beat = sample_to_next_beat / (float)sampling_rate * 1000.0f;
 }

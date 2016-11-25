@@ -1,10 +1,13 @@
 ﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Runtime.InteropServices;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 public class BeatTracker : MonoBehaviour {
+	public delegate void BeatDelegate();
+	public static event BeatDelegate OnBeat;
 
 	[DllImport("AudioPlugin_LoopbackAudioSource")]
 	public extern static void Initialize(int sampling_rate);
@@ -25,12 +28,18 @@ public class BeatTracker : MonoBehaviour {
 	public extern static float GetRMS(int index);
 
 	[DllImport("AudioPlugin_LoopbackAudioSource")]
+	public extern static float GetMillisecondsToNextBeat();
+
+	[DllImport("AudioPlugin_LoopbackAudioSource")]
 	public extern static int GetWindowSize();
 
 	// Use this for initialization
 	void Start () {
 		// Initializeは複数回呼んでもかまわない
 		Initialize(AudioSettings.outputSampleRate);
+
+		// 拍のタイミングを知らせるコルーチンを開始
+		StartCoroutine("BeatPulser");
 	}
 	
 	// Update is called once per frame
@@ -56,7 +65,7 @@ public class BeatTracker : MonoBehaviour {
 		GetComponent<Text>().color = Color.black;
 		for (var i = 0; i < 7; ++i) {
 			int index = sorted.Select(x => x.Key).ElementAt(i);
-			GetComponent<Text>().text += (i + 1) + ": " + 11250.0 / (index + 45) + "\n";
+			GetComponent<Text>().text += (i + 1) + ": " + AudioSettings.outputSampleRate / 256.0 * 60.0 / (index + 45) + "\n";
 		}
 
 		// Draw BPM Score
@@ -69,16 +78,12 @@ public class BeatTracker : MonoBehaviour {
 			} else {
 				var color = Color.red;
 				// スコアが7位以内なら色付け
-				if (i == 93 - 45) {
-					color = Color.green;
-					GetComponent<Text>().text += GetBPMScore(i) + "\n";
-				}
 				if (sorted.Select(x => x.Key).Take(7).ToList().Exists(x => x == i)) {
 					color = Color.cyan;
 				}
 				if (i == max_index) {
 					color = Color.yellow;
-					GetComponent<Text>().text += GetBPMScore(max_index) + "\n";
+					GetComponent<Text>().text += "Max Score: " + GetBPMScore(max_index) + "\n";
 				}
 
 				Debug.DrawLine(
@@ -102,6 +107,18 @@ public class BeatTracker : MonoBehaviour {
 				new Vector3((i + 1) / 120.0f, GetRMS(window_size - 1 - (i + 1)) * 10.0f + 6.0f, 0),
 				Color.magenta);
 		}
+
+		GetComponent<Text>().text += "Next Beat: " + GetMillisecondsToNextBeat().ToString("N3") + " ms\n";
 #endif
+	}
+
+	IEnumerator BeatPulser()
+	{
+		for (;;) {
+			yield return new WaitForSeconds(GetMillisecondsToNextBeat() / 1000.0f);
+			if (OnBeat != null) {
+				OnBeat();
+			}
+		}
 	}
 }
