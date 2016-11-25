@@ -1,5 +1,6 @@
 #pragma once
 #include "MFT_resampler.h"
+#include "MM_notification_client.h"
 #include <wrl/client.h>
 #include <mmdeviceapi.h>
 #include <Audioclient.h>
@@ -45,6 +46,7 @@ private:
   Microsoft::WRL::ComPtr<IMMDevice> device;
   Microsoft::WRL::ComPtr<IAudioClient> audio_client;
   Microsoft::WRL::ComPtr<IAudioCaptureClient> capture_client;
+  std::unique_ptr<MM_notification_client> notification_client;
   Status status;
   int sampling_rate;
   int num_channels;

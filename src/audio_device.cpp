@@ -11,11 +11,6 @@ AudioDevice* device;
 
 AudioDevice::AudioDevice()
   : status(Status::Constructed)
-{}
-
-void AudioDevice::initialize(
-  int buffer_length_millisec,
-  int output_sampling_rate)
 {
   auto hr = CoCreateInstance(
     __uuidof(MMDeviceEnumerator),
@@ -27,7 +22,15 @@ void AudioDevice::initialize(
     throw std::runtime_error("Failed to create IMMDeviceEnumerator.");
   }
 
-  hr = enumerator->GetDefaultAudioEndpoint(
+  notification_client = std::make_unique<MM_notification_client>(this);
+  enumerator->RegisterEndpointNotificationCallback(notification_client.get());
+}
+
+void AudioDevice::initialize(
+  int buffer_length_millisec,
+  int output_sampling_rate)
+{
+  auto hr = enumerator->GetDefaultAudioEndpoint(
     eRender,
     eConsole,
     &device
@@ -114,8 +117,6 @@ void AudioDevice::Finalize()
 {
   // ˜^‰¹ƒXƒŒƒbƒh‚ð’âŽ~
   status = Status::Stopped;
-  recorder->join();
-
   if (audio_client) {
     audio_client->Stop();
   }
@@ -341,4 +342,5 @@ void AudioDevice::run()
 AudioDevice::~AudioDevice()
 {
   Finalize();
+  enumerator->UnregisterEndpointNotificationCallback(notification_client.get());
 }
