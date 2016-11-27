@@ -215,7 +215,7 @@ void Analyzer::update()
     double max_first_beat_score = 0.0;
     for (size_t offset = 0; offset < max_score_interval; ++offset) {
       double score = 0.0;
-      for (size_t index = offset; index < window_size; index += max_score_interval) {
+      for (size_t index = offset; index < window_size; index += (size_t)max_score_interval) {
         score += vu_bin[index];
       }
       if (score > max_first_beat_score) {
