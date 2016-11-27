@@ -200,9 +200,9 @@ void Analyzer::update()
     }
   }
 
-  const auto max_score_interval = max_index + min_interval;
+  const float max_score_interval = (float)max_index + min_interval;
   const float packet_per_minute = sampling_rate / (float)packet_size * 60.0f;
-  const float new_bpm = packet_per_minute / static_cast<const float>(max_score_interval);
+  const float new_bpm = packet_per_minute / max_score_interval;
   bool bpm_changed = false;
   if (new_bpm != bpm) {
     bpm_changed = true;
