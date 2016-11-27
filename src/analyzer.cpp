@@ -202,21 +202,40 @@ void Analyzer::update()
 
   const auto max_score_interval = max_index + min_interval;
   const float packet_per_minute = sampling_rate / (float)packet_size * 60.0f;
-  bpm = packet_per_minute / static_cast<const float>(max_score_interval);
+  const float new_bpm = packet_per_minute / static_cast<const float>(max_score_interval);
+  bool bpm_changed = false;
+  if (new_bpm != bpm) {
+    bpm_changed = true;
+  }
+  bpm = new_bpm;
 
   // Å‰‚Ì”‚ğŒŸõ‚·‚é
-  size_t max_first_beat_score_offset = 0;
-  double max_first_beat_score = 0.0;
-  for (size_t offset = 0; offset < max_score_interval; ++offset) {
-    double score = 0.0;
-    for (size_t index = offset; index < window_size; index += max_score_interval) {
-      score += vu_bin[index];
+  if (bpm_changed) {
+    size_t max_first_beat_score_offset = 0;
+    double max_first_beat_score = 0.0;
+    for (size_t offset = 0; offset < max_score_interval; ++offset) {
+      double score = 0.0;
+      for (size_t index = offset; index < window_size; index += max_score_interval) {
+        score += vu_bin[index];
+      }
+      if (score > max_first_beat_score) {
+        max_first_beat_score = score;
+        max_first_beat_score_offset = offset;
+      }
     }
-    if (score > max_first_beat_score) {
-      max_first_beat_score = score;
-      max_first_beat_score_offset = offset;
+    const float sample_to_next_beat = (float)max_first_beat_score_offset * packet_size;
+    milliseconds_to_next_beat = sample_to_next_beat / (float)sampling_rate * 1000.0f;
+  } else {
+    const float previous_milliseconds_to_next_beat = milliseconds_to_next_beat;
+    const float previous_samples_to_next_beat = previous_milliseconds_to_next_beat * (float)sampling_rate / 1000.0f;
+    const float elapsed_samples = (float)analyzer_data[0].size();
+
+    float samples_to_next_beat = previous_samples_to_next_beat - elapsed_samples;
+    const float bpm_interval_milliseconds = 1.0f / (bpm / 60.0f / 1000.0f);
+    const float bpm_interval_samples = bpm_interval_milliseconds * (float)sampling_rate / 1000.0f;
+    while (samples_to_next_beat < 0.0) {
+      samples_to_next_beat += bpm_interval_samples;
     }
+    milliseconds_to_next_beat = samples_to_next_beat / (float)sampling_rate * 1000.0f;
   }
-  float sample_to_next_beat = (float)max_first_beat_score_offset * packet_size;
-  milliseconds_to_next_beat = sample_to_next_beat / (float)sampling_rate * 1000.0f;
 }
