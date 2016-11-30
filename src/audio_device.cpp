@@ -62,7 +62,7 @@ void AudioDevice::initialize(
 
   resampler = std::make_unique<MFT_resampler>(
     mix_format->nBlockAlign,
-    reinterpret_cast<WAVEFORMATEXTENSIBLE*>(mix_format)->dwChannelMask,
+    SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT,
     mix_format->nAvgBytesPerSec,
     mix_format->nSamplesPerSec,
     output_sampling_rate
