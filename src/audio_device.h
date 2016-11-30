@@ -10,6 +10,7 @@
 #include <thread>
 #include <deque>
 #include <mutex>
+#include <atomic>
 
 class AudioDevice
 {
@@ -22,6 +23,7 @@ public:
     int buffer_length_millisec,
     int output_sampling_rate);
   void Finalize();
+  void request_reinitialize(int sampling_rate);
   bool is_initialized();
   int get_sampling_rate();
   int get_num_channels();
@@ -34,6 +36,7 @@ public:
 private:
   enum class Status
   {
+    Reinitializing,
     Constructed,
     Preparing,
     Playing,
@@ -47,8 +50,9 @@ private:
   Microsoft::WRL::ComPtr<IAudioClient> audio_client;
   Microsoft::WRL::ComPtr<IAudioCaptureClient> capture_client;
   std::unique_ptr<MM_notification_client> notification_client;
-  Status status;
+  std::atomic<Status> status;
   int sampling_rate;
+  int sampling_rate_reinitialize;
   int num_channels;
   int bit_per_sample;
   UINT32 buffer_frame_count;
@@ -67,7 +71,7 @@ private:
   static const size_t prepare_buffer_size = 1024 * 3;
   std::array<std::vector<float>, max_channels> deinterleave_buffer;
 
-  std::unique_ptr<std::thread> recorder;
+  std::thread recorder;
   std::unique_ptr<MFT_resampler> resampler;
 };
 

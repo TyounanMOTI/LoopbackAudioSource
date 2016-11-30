@@ -11,6 +11,7 @@ AudioDevice* device;
 
 AudioDevice::AudioDevice()
   : status(Status::Constructed)
+  , recorder(&AudioDevice::run, this)
 {
   auto hr = CoCreateInstance(
     __uuidof(MMDeviceEnumerator),
@@ -105,21 +106,25 @@ void AudioDevice::initialize(
   pass_buffer.resize(1024);
   zero_buffer.assign(1024, 0.0f);
 
-  if (recorder && recorder->joinable()) {
-    status = Status::Stopped;
-    recorder->join();
-  }
   status = Status::Preparing;
-  recorder = std::make_unique<std::thread>(&AudioDevice::run, this);
 }
 
 void AudioDevice::Finalize()
 {
   // 録音スレッドを停止
   status = Status::Stopped;
+  if (recorder.joinable()) {
+    recorder.join();
+  }
   if (audio_client) {
     audio_client->Stop();
   }
+}
+
+void AudioDevice::request_reinitialize(int sampling_rate)
+{
+  status = Status::Reinitializing;
+  sampling_rate_reinitialize = sampling_rate;
 }
 
 bool AudioDevice::is_initialized()
@@ -248,11 +253,19 @@ void AudioDevice::reset_analyzer_data()
 
 void AudioDevice::run()
 {
-  while (status < Status::Stopped) {
+  while (status < Status::Stopped) { 
     // バッファ長の1/2だけ待つ
     std::this_thread::sleep_for(std::chrono::microseconds(static_cast<size_t>((double)buffer_frame_count / sampling_rate / 2.0 * 1000.0 * 1000.0)));
+    if (status == Status::Constructed) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(33));
+      continue;
+    }
 
     try {
+      if (status == Status::Reinitializing) {
+        initialize(32, sampling_rate_reinitialize);
+      }
+
       UINT32 total_frames = 0;
       UINT32 packet_length;
       auto hr = capture_client->GetNextPacketSize(&packet_length);
@@ -330,11 +343,7 @@ void AudioDevice::run()
         }
       }
     } catch (const std::exception&) {
-      status = Status::Stopped;
-
-      if (audio_client) {
-        audio_client->Stop();
-      }
+      request_reinitialize(sampling_rate);
     }
   }
 }

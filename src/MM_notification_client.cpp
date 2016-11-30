@@ -51,6 +51,6 @@ HRESULT MM_notification_client::QueryInterface(REFIID riid, VOID ** ppvInterface
 
 HRESULT MM_notification_client::OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR pwstrDeviceId)
 {
-  audio_device->Finalize();
+  audio_device->request_reinitialize(audio_device->get_sampling_rate());
   return S_OK;
 }
