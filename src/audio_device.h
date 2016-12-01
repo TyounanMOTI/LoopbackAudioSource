@@ -27,6 +27,7 @@ public:
   bool is_initialized();
   int get_sampling_rate();
   int get_num_channels();
+  Microsoft::WRL::ComPtr<IMMDevice> get_default_device();
   float* get_buffer(int request_channel, int length);
   std::array<std::vector<float>, max_channels> get_analyzer_data(size_t alignment);
   void catch_up(int request_channel);

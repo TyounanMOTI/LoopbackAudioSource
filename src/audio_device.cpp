@@ -142,6 +142,11 @@ int AudioDevice::get_num_channels()
   return num_channels;
 }
 
+Microsoft::WRL::ComPtr<IMMDevice> AudioDevice::get_default_device()
+{
+  return device;
+}
+
 float* AudioDevice::get_buffer(int request_channel, int length)
 {
   if (pass_buffer.size() < length || zero_buffer.size() < length) {

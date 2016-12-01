@@ -1,10 +1,13 @@
 #include <IUnityInterface.h>
 #include "audio_device.h"
 #include "analyzer.h"
+#include "audio_meter.h"
 #include "spatializer_plugin.h"
 #include <windows.h>
 
 extern HMODULE oculus_spatializer_dll;
+
+std::unique_ptr<AudioMeter> meter;
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,10 +23,15 @@ void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginLoad(IUnityInterfaces
 
 void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload()
 {
+  if (analyzer) {
+    delete analyzer;
+    analyzer = nullptr;
+  }
   if (device) {
     delete device;
     device = nullptr;
   }
+  meter.reset();
   if (oculus_spatializer_dll) {
     FreeLibrary(oculus_spatializer_dll);
   }
@@ -40,6 +48,9 @@ void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Initialize(int sampling_rate)
       analyzer = new Analyzer(device, sampling_rate);
     }
     analyzer->reset();
+    if (!meter) {
+      meter = std::make_unique<AudioMeter>(device);
+    }
   } catch (const std::exception&) {
   }
 }
@@ -105,6 +116,17 @@ int UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetWindowSize()
     return 0;
   }
   return Analyzer::window_size;
+}
+
+float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetSumOfPeakMeter()
+{
+  if (!meter) {
+    return 0.0f;
+  }
+  try {
+    meter->get_sum_of_peak_meter();
+  } catch (const std::exception& e) {
+  }
 }
 
 #ifdef __cplusplus

@@ -69,6 +69,7 @@
     <Compile Include="Assets\LoopbackAudioSource\examples\scripts\BeatSphere.cs" />
     <Compile Include="Assets\LoopbackAudioSource\examples\scripts\BeatTracker.cs" />
     <Compile Include="Assets\LoopbackAudioSource\examples\scripts\EightBandLevelViewer.cs" />
+    <Compile Include="Assets\LoopbackAudioSource\examples\scripts\PeakSphere.cs" />
     <Compile Include="Assets\LoopbackAudioSource\scripts\LoopbackAudioSource.cs" />
     <Compile Include="Assets\OSPNative\scenes\Standard Assets\Character Controllers\Sources\Scripts\MouseLook.cs" />
     <Compile Include="Assets\OSPNative\scripts\ONSPAudioSource.cs" />
