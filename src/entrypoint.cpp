@@ -118,14 +118,14 @@ int UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetWindowSize()
   return Analyzer::window_size;
 }
 
-float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetSumOfPeakMeter()
+float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOutsidePeakMeter()
 {
   if (!meter) {
     return 0.0f;
   }
   try {
-    meter->get_sum_of_peak_meter();
-  } catch (const std::exception& e) {
+    return meter->get_outside_peak_meter();
+  } catch (const std::exception&) {
   }
 }
 

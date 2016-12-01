@@ -9,7 +9,7 @@ class AudioMeter
 public:
   AudioMeter(AudioDevice *device);
 
-  float get_sum_of_peak_meter();
+  float get_outside_peak_meter();
 
 private:
   AudioDevice* device;

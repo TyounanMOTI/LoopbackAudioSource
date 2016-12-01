@@ -9,7 +9,7 @@ AudioMeter::AudioMeter(AudioDevice *device)
 {
 }
 
-float AudioMeter::get_sum_of_peak_meter()
+float AudioMeter::get_outside_peak_meter()
 {
   Microsoft::WRL::ComPtr<IAudioSessionManager2> session_manager;
   auto mm_device = device->get_default_device();
@@ -51,6 +51,24 @@ float AudioMeter::get_sum_of_peak_meter()
     AudioSessionState state;
     hr = control->GetState(&state);
     if (state != AudioSessionStateActive) {
+      continue;
+    }
+
+    ComPtr<IAudioSessionControl2> control2;
+    hr = control.As(&control2);
+    if (FAILED(hr)) {
+      throw std::runtime_error("Failed to cast IAudioSessionControl to IAudioSessionControl2.");
+    }
+
+    DWORD session_pid;
+    hr = control2->GetProcessId(&session_pid);
+    if (FAILED(hr)) {
+      throw std::runtime_error("Failed to get process id of session.");
+    }
+
+    auto current_pid = GetCurrentProcessId();
+    if (current_pid == session_pid) {
+      // 現在のプロセスを除外する
       continue;
     }
 
