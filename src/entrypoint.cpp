@@ -126,6 +126,7 @@ float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOutsidePeakMeter()
   try {
     return meter->get_outside_peak_meter();
   } catch (const std::exception&) {
+    return 0.0f;
   }
 }
 
