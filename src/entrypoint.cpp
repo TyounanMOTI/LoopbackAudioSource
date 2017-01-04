@@ -56,7 +56,7 @@ void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Initialize(int sampling_rate)
       meter = std::make_unique<AudioMeter>(device);
     }
     if (!volume) {
-      volume = std::make_unique<SessionVolume>(device);
+      volume = std::make_unique<SessionVolume>();
     }
   } catch (const std::exception&) {
   }

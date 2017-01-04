@@ -3,14 +3,33 @@
 
 using namespace Microsoft::WRL;
 
-SessionVolume::SessionVolume(AudioDevice* device)
+SessionVolume::SessionVolume()
 {
-  ComPtr<IAudioSessionManager2> session_manager;
-  auto mm_device = device->get_default_device();
-  if (!mm_device) {
-    throw std::runtime_error("Failed to get default device.");
+  auto hr = CoCreateInstance(
+    __uuidof(MMDeviceEnumerator),
+    nullptr,
+    CLSCTX_ALL,
+    IID_PPV_ARGS(&device_enumerator)
+  );
+  if (FAILED(hr)) {
+    throw std::runtime_error("Failed to create IMMDeviceEnumerator.");
   }
-  auto hr = mm_device->Activate(
+}
+
+void SessionVolume::set_process_volume(int process_id, float value)
+{
+  ComPtr<IMMDevice> mm_device;
+  auto hr = device_enumerator->GetDefaultAudioEndpoint(
+    eRender,
+    eConsole,
+    &mm_device
+  );
+  if (FAILED(hr)) {
+    throw std::runtime_error("Failed to get default audio endpoint.");
+  }
+
+  ComPtr<IAudioSessionManager2> session_manager;
+  hr = mm_device->Activate(
     __uuidof(IAudioSessionManager2),
     CLSCTX_ALL,
     nullptr,
@@ -26,12 +45,9 @@ SessionVolume::SessionVolume(AudioDevice* device)
   if (FAILED(hr)) {
     throw std::runtime_error("Failed to get session enumerator.");
   }
-}
 
-void SessionVolume::set_process_volume(int process_id, float value)
-{
   int session_count = 0;
-  auto hr = enumerator->GetCount(&session_count);
+  hr = enumerator->GetCount(&session_count);
   if (FAILED(hr)) {
     throw std::runtime_error("Failed to get session count.");
   }
