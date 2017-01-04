@@ -2,12 +2,14 @@
 #include "audio_device.h"
 #include "analyzer.h"
 #include "audio_meter.h"
+#include "session_volume.h"
 #include "spatializer_plugin.h"
 #include <windows.h>
 
 extern HMODULE oculus_spatializer_dll;
 
 std::unique_ptr<AudioMeter> meter;
+std::unique_ptr<SessionVolume> volume;
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +34,8 @@ void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API UnityPluginUnload()
     device = nullptr;
   }
   meter.reset();
+  volume.reset();
+
   if (oculus_spatializer_dll) {
     FreeLibrary(oculus_spatializer_dll);
   }
@@ -50,6 +54,9 @@ void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API Initialize(int sampling_rate)
     analyzer->reset();
     if (!meter) {
       meter = std::make_unique<AudioMeter>(device);
+    }
+    if (!volume) {
+      volume = std::make_unique<SessionVolume>(device);
     }
   } catch (const std::exception&) {
   }
@@ -127,6 +134,18 @@ float UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API GetOutsidePeakMeter()
     return meter->get_outside_peak_meter();
   } catch (const std::exception&) {
     return 0.0f;
+  }
+}
+
+void UNITY_INTERFACE_EXPORT UNITY_INTERFACE_API SetProcessVolume(int process_id, float value)
+{
+  if (!volume) {
+    return;
+  }
+  try {
+    volume->set_process_volume(process_id, value);
+  } catch (const std::exception&) {
+    return;
   }
 }
 
